@@ -14,8 +14,8 @@ var_dump($ret);
 ?>
 --EXPECTF--
 string(%d) "-----BEGIN PGP PUBLIC KEY BLOCK-----
-Version: GnuPG v1
-
+%r(Version: GnuPG v1
+)?%r
 mQGiBENQAKwRBADpy828KU+0SuoetJTrJ5dR86PiO3CsH8K6QRP7wY82Eh/9NTJ3
 afRj0FNPaVSP0NciPeM4G4uFoQ3lsIf+FBEPXH1D97/XigWObU8K6ha2/s8wU98z
 /samjTHLR+VKZ031B5/8p5Y49yvkkEyBkF1G85yeIXK0WZorKBPncRKuUwCgxOi/
