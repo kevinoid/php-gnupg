@@ -1,11 +1,15 @@
 <?php
-putenv("GNUPGHOME=" . dirname(__FILE__));
+$gnupghome = dirname(__FILE__) . "/.gnupg";
+if (!is_dir($gnupghome)) {
+	mkdir($gnupghome);
+}
+putenv("GNUPGHOME=" . $gnupghome);
 error_reporting(E_ALL);
 $fingerprint = "64DF06E42FCF2094590CDEEE2E96F141B3DD2B2E";
 $passphrase = "blabla";
 $plaintext = "foo bar";
-$secringfile = dirname(__FILE__) . "/secring.gpg";
-$pubringfile = dirname(__FILE__) . "/pubring.gpg";
+$secringdir = $gnupghome . "/private-keys-v1.d";
+$secringfile = $gnupghome . "/secring.gpg";
 
 $testkey =<<<EOF
 -----BEGIN PGP PRIVATE KEY BLOCK-----
@@ -37,21 +41,36 @@ BjoYSlJsrQm0AJ4m57ArwLXA7WXk5iQbMWlvhWCq4g==
 -----END PGP PRIVATE KEY BLOCK-----
 EOF;
 
-function gnupg_test_clear_files() {
-	global $secringfile, $pubringfile;
+/** Remove files (but not subdirs) in a directory recursively. */
+function gnupg_test_clear_dir($dirpath) {
+	$result = true;
+	foreach (scandir($dirpath) as $file) {
+		if ($file === '.' || $file === '..') {
+			continue;
+		}
+		$filepath = "$dirpath/$file";
+		if (is_dir($filepath)) {
+			$result = gnupg_test_clear_dir($filepath) && $result;
+		} else {
+			$result = unlink($filepath) && $result;
+		}
+	}
+	return $result;
+}
 
-	if (is_file($secringfile)) {
-		unlink($secringfile);
-	}
-	if (is_file($pubringfile)) {
-		unlink($pubringfile);
-	}
+function gnupg_test_clear_files() {
+	global $gnupghome;
+
+	// Note: Removing $secringdir causes ENOENT in gpg-agent for subsequent
+	//       imports.  Remove contents only.
+	gnupg_test_clear_dir($gnupghome);
 }
 
 function gnupg_test_import() {
-	global $secringfile, $testkey;
+	global $secringdir, $secringfile, $testkey;
 
-	if (!file_exists($secringfile) || !filesize($secringfile)) {
+	if ((!file_exists($secringdir) || count(scandir($secringdir)) <= 2) &&
+			(!file_exists($secringfile) || !filesize($secringfile))) {
 		$gpg = new gnupg();
 		return $gpg->import($testkey);
 	}
