@@ -142,6 +142,7 @@ static void gnupg_res_init(PHPC_THIS_DECLARE(gnupg) TSRMLS_DC)
 		gpgme_ctx_set_engine_info(ctx, GPGME_PROTOCOL_OpenPGP, GNUPG_PATH, NULL);
 #endif
 		gpgme_set_armor(ctx, 1);
+		gpgme_set_pinentry_mode(ctx, GPGME_PINENTRY_MODE_LOOPBACK);
 	}
 	PHPC_THIS->ctx = ctx;
 	PHPC_THIS->encryptkeys = NULL;
