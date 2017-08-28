@@ -1,0 +1,51 @@
+# https://docs.travis-ci.com/user/customizing-the-build/
+language: php
+
+php:
+  # Test on oldest and newest PHP release supported by Travis CI
+  # See https://docs.travis-ci.com/user/languages/php/
+  - '5.4'
+  - '7.1'
+
+# Use Container-based environment
+# https://docs.travis-ci.com/user/reference/overview/
+sudo: false
+
+# Pin distribution to trusty (incompatibilities noted in comments)
+dist: trusty
+
+addons:
+  apt:
+    packages:
+      # Change to gnupg1 for zesty and later
+      - gnupg
+      - gnupg2
+      # Change to libgpgme-dev for zesty and later
+      - libgpgme11-dev
+
+install:
+  - phpize
+
+  # Makefile.global from PHP 5.4 discards the exit code from run-tests.php
+  # This was fixed in php-src.git 4d804aa5.  Use the one from 5.5.38.
+  - if [ "$TRAVIS_PHP_VERSION" = '5.4' ] ; then curl -fL -o Makefile.global 'https://git.php.net/?p=php-src.git;a=blob_plain;f=Makefile.global;hb=refs/heads/PHP-5.5.38' ; fi
+
+  # Use test-gpg symlink as gpg binary so both gpg1 and gpg2 can be tested
+  # Change to /usr/bin/gpg1 for zesty and later
+  - ln -sf /usr/bin/gpg test-gpg
+
+  - ./configure --with-gpg="$(pwd)/test-gpg" CFLAGS='-Wall -Wno-sequence-point -Werror -g -O2'
+  - make -j2
+
+script:
+  # NO_INTERACTION=1 prevent prompting about submitting result to qa.php.net.
+  # REPORT_EXIT_STATUS=1 causes run-tests.php to exit 1 and fail build on errors
+  # TESTS=--show-diff is a hack to print expectation diffs from run-tests.php.
+  - export NO_INTERACTION=1 REPORT_EXIT_STATUS=1 TESTS=--show-diff
+
+  - echo '=== GnuPG 1 Tests ===' &&
+    make test
+
+  - echo '=== GnuPG 2.0 Tests ===' &&
+    ln -sf /usr/bin/gpg2 test-gpg &&
+    GNUPGHOME="$(pwd)/tests/.gnupg" gpg-agent --daemon make test
