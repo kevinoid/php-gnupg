@@ -17,6 +17,7 @@
 #endif
 
 #include <stddef.h>
+#include <stdio.h>
 
 #include "php.h"
 #include "php_ini.h"
@@ -120,6 +121,71 @@ static void gnupg_free_resource_ptr(PHPC_THIS_DECLARE(gnupg) TSRMLS_DC)
 }
 /* }}} */
 
+/* {{{ Version Handling */
+
+/** Type to represent a 3-part version efficiently for space and comparison.
+ * Internally stored as MMmmpp00 int in struct to prevent accidental misuse.
+ */
+typedef struct { unsigned int n; } gnupg_version_t;
+
+/* {{{ gnupg_make_version */
+/** Create a version from its constituent parts. */
+static gnupg_version_t gnupg_make_version(unsigned char major,
+		unsigned char minor, unsigned char patch)
+{
+	gnupg_version_t v;
+	v.n = ((unsigned int)major << 24) |
+		((unsigned int)minor << 16) |
+		((unsigned int)patch << 8);
+	return v;
+}
+/* }}} */
+
+/* {{{ gnupg_parse_version */
+/** Parse a 3-part version string into a version.  Returns 0 on failure. */
+static gnupg_version_t gnupg_parse_version(const char *version)
+{
+	unsigned char major, minor, patch;
+
+	if (sscanf(version, "%hhu.%hhu.%hhu", &major, &minor, &patch) != 3) {
+		return gnupg_make_version(0, 0, 0);
+	}
+
+	return gnupg_make_version(major, minor, patch);
+}
+/* }}} */
+
+/* {{{ gnupg_version_cmp */
+/** Returns an integer less than, equal to, or greater than zero if v1 is less
+ * than, equal to, or greater than v2 respectively. */
+static int gnupg_version_cmp(gnupg_version_t v1, gnupg_version_t v2)
+{
+	return (int)(v1.n - v2.n);
+}
+/* }}} */
+
+/* {{{ gnupg_ctx_get_version */
+static gnupg_version_t gnupg_ctx_get_version(gpgme_ctx_t ctx,
+		gpgme_protocol_t proto)
+{
+	gnupg_version_t gpg_version;
+	gpgme_engine_info_t info;
+
+	gpg_version = gnupg_make_version(0, 0, 0);
+	info = gpgme_ctx_get_engine_info(ctx);
+	for (; info != NULL; info = info->next) {
+		if (info->protocol == proto) {
+			gpg_version = gnupg_parse_version(info->version);
+			break;
+		}
+	}
+
+	return gpg_version;
+}
+/* }}} */
+
+/* Version Handling }}} */
+
 /* {{{ gnupg_res_dtor */
 static void gnupg_res_dtor(phpc_res_entry_t *rsrc TSRMLS_DC) /* {{{ */
 {
@@ -138,11 +204,19 @@ static void gnupg_res_init(PHPC_THIS_DECLARE(gnupg) TSRMLS_DC)
 
 	err = gpgme_new(&ctx);
 	if (err == GPG_ERR_NO_ERROR) {
+		gnupg_version_t gpg_version;
 #ifdef GNUPG_PATH
 		gpgme_ctx_set_engine_info(ctx, GPGME_PROTOCOL_OpenPGP, GNUPG_PATH, NULL);
 #endif
 		gpgme_set_armor(ctx, 1);
-		gpgme_set_pinentry_mode(ctx, GPGME_PINENTRY_MODE_LOOPBACK);
+
+		/* gpgme_set_pinentry_mode incompatible with GPGME < 1.7.0 + gpg < 2.1.
+		 * Ensure it is only used for gpg 2.1 and later. (See gpgme efe7e11d.)
+		 */
+		gpg_version = gnupg_ctx_get_version(ctx, GPGME_PROTOCOL_OpenPGP);
+		if (gnupg_version_cmp(gpg_version, gnupg_make_version(2, 1, 0)) >= 0) {
+			gpgme_set_pinentry_mode(ctx, GPGME_PINENTRY_MODE_LOOPBACK);
+		}
 	}
 	PHPC_THIS->ctx = ctx;
 	PHPC_THIS->encryptkeys = NULL;
