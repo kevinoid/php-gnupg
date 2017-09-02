@@ -5,7 +5,7 @@ php:
   # Test on oldest and newest PHP release supported by Travis CI
   # See https://docs.travis-ci.com/user/languages/php/
   - '5.4'
-  - '7.1'
+#  - '7.1'
 
 # Use Container-based environment
 # https://docs.travis-ci.com/user/reference/overview/
@@ -20,8 +20,20 @@ addons:
       # Change to gnupg1 for zesty and later
       - gnupg
       - gnupg2
+      # Required for gnupg2 from xenial
+      - libgcrypt20
       # Change to libgpgme-dev for zesty and later
       - libgpgme11-dev
+      # Required for gnupg-agent from xenial
+      - libnpth0
+
+before_install:
+  # Extract GnuPG 2.1 from xenial into ./gpg21
+  - mkdir -p .travis/apt/lib/lists &&
+    touch .travis/apt/lib/status &&
+    apt-get -c .travis/apt.conf update
+  - apt-get -c .travis/apt.conf download gnupg2 gnupg-agent
+  - dpkg-deb -x gnupg2_*.deb gpg21 && dpkg-deb -x gnupg-agent_*.deb gpg21
 
 install:
   - phpize
@@ -46,6 +58,10 @@ script:
   - echo '=== GnuPG version 1 Tests ==='
   - make test
 
-  - echo '=== GnuPG version 2 Tests ==='
+  - echo '=== GnuPG version 2.0 Tests ==='
   - ln -sf /usr/bin/gpg2 test-gpg
   - GNUPGHOME="$(pwd)/tests/.gnupg" gpg-agent --daemon make test
+
+  - echo '=== GnuPG version 2.1 Tests ==='
+  - ln -sf gpg21/usr/bin/gpg2 test-gpg
+  - GNUPGHOME="$(pwd)/tests/.gnupg" gpg21/usr/bin/gpg-agent --daemon make test
