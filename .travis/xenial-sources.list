@@ -1,0 +1,4 @@
+# sources.list for xenial packages for Travis CI
+deb http://archive.ubuntu.com/ubuntu/ xenial main
+
+# vi: set ft=debsources :

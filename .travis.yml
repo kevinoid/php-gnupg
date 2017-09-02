@@ -7,9 +7,9 @@ php:
   - '5.4'
   - '7.1'
 
-# Use Container-based environment
+# Need sudo for installing GnuPG 2.1
 # https://docs.travis-ci.com/user/reference/overview/
-sudo: false
+sudo: required
 
 # Pin distribution to trusty (incompatibilities noted in comments)
 dist: trusty
@@ -22,6 +22,9 @@ addons:
       - gnupg2
       # Change to libgpgme-dev for zesty and later
       - libgpgme11-dev
+
+before_install:
+  - sudo -n apt-get -o Dir::Etc::sourcelist=./.travis/xenial-sources.list -o Dir::Etc::sourceparts=nonexistent update
 
 install:
   - phpize
@@ -48,4 +51,11 @@ script:
 
   - echo '=== GnuPG 2.0 Tests ===' &&
     ln -sf /usr/bin/gpg2 test-gpg &&
+    GNUPGHOME="$(pwd)/tests/.gnupg" gpg-agent --daemon make test
+
+  - echo 'travis_fold:start:apt-get install gnupg2/xenial' &&
+    sudo -n apt-get -y -o Dir::Etc::sourcelist=./.travis/xenial-sources.list install gnupg2/xenial &&
+    echo 'travis_fold:end:apt-get install gnupg2/xenial'
+
+  - echo '=== GnuPG 2.1 Tests ===' &&
     GNUPGHOME="$(pwd)/tests/.gnupg" gpg-agent --daemon make test
