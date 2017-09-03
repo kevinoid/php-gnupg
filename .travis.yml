@@ -31,8 +31,8 @@ before_install:
   # Extract GnuPG 2.1 from xenial into ./gpg21
   - mkdir -p .travis/apt/lib/lists &&
     touch .travis/apt/lib/status &&
-    apt-get -c .travis/apt.conf update
-  - apt-get -c .travis/apt.conf download gnupg2 gnupg-agent
+    APT_CONFIG=.travis/apt.conf apt-get update
+  - APT_CONFIG=.travis/apt.conf apt-get download gnupg2 gnupg-agent
   - dpkg-deb -x gnupg2_*.deb gpg21 && dpkg-deb -x gnupg-agent_*.deb gpg21
 
 install:
